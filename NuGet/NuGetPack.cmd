@@ -1,1 +1,1 @@
-nuget pack "Option\Option.nuspec" -symbols
+nuget pack "PatternMatcher\PatternMatcher.nuspec" -symbols

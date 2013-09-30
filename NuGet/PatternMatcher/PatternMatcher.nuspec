@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>PatternMatcher</id>
-    <version>0.0.0</version>
+    <version>1.0.0</version>
     <title>PatternMatcher</title>
     <authors>Tom Jacques</authors>
     <owners>Tom Jacques</owners>
@@ -19,8 +19,11 @@
     <releaseNotes>
         Version Release Notes:
 
-        Version 0.0.0:
-         - Claim NuGet Package ID
+        Version 1.0.0:
+         - Adds the PatternMatcher class to Functional.PatternMatching
+         - PatternMatcher is a fluent API that allows you to execute code based on how input matches specified patterns
+         - Patterns can match on type as well as value
+         - Adds the Match&lt;T&gt; and Match&lt;TIn,TOut&gt; extension methods to objects to create a PatternMatcher for a value
      </releaseNotes>
     <dependencies>
     </dependencies>
