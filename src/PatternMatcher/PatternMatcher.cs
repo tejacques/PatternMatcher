@@ -34,7 +34,7 @@ namespace Functional.PatternMatching
         private readonly T _value;
         private readonly bool _hasValue;
         private Dictionary<Type, Action<T>> _matchedTypes;
-        private Dictionary<T, Action> _matchedValues;
+        private Dictionary<Type, Dictionary<T, Action>> _matchedValueTypes;
 
         public PatternMatcher()
         {
@@ -42,7 +42,8 @@ namespace Functional.PatternMatching
             this._value = default(T);
 
             this._matchedTypes = new Dictionary<Type, Action<T>>();
-            this._matchedValues = new Dictionary<T, Action>();
+            this._matchedValueTypes =
+                new Dictionary<Type, Dictionary<T, Action>>();
         }
 
         public PatternMatcher(T value) : this()
@@ -71,7 +72,16 @@ namespace Functional.PatternMatching
 
         public PatternMatcher<T> With<TPattern>(T value, Action action)
         {
-            if (this._matchedValues.ContainsKey(value))
+            if (!this._matchedValueTypes.ContainsKey(typeof(T)))
+            {
+                this._matchedValueTypes.Add(
+                    typeof(T),
+                    new Dictionary<T, Action>());
+            }
+
+            var matchedValues = this._matchedValueTypes[typeof(T)];
+
+            if (matchedValues.ContainsKey(value))
             {
                 throw new InvalidOperationException(
                     string.Format(
@@ -80,7 +90,7 @@ namespace Functional.PatternMatching
                         value.ToString()));
             }
 
-            this._matchedValues.Add(value, action);
+            matchedValues.Add(value, action);
 
             return this;
         }
@@ -104,11 +114,19 @@ namespace Functional.PatternMatching
         /// <param name="value">The value to match on.</param>
         public void Return(T value)
         {
-            if (this._matchedValues.ContainsKey(value))
+            bool matched = false;
+
+            if (this._matchedValueTypes.ContainsKey(typeof(T)))
             {
-                this._matchedValues[value]();
+                var matchedValues = this._matchedValueTypes[typeof(T)];
+
+                if (null != matchedValues && matchedValues.ContainsKey(value))
+                {
+                    matchedValues[value]();
+                    matched = true;
+                }
             }
-            else if (this._matchedTypes.ContainsKey(typeof(T)))
+            if (!matched && this._matchedTypes.ContainsKey(typeof(T)))
             {
                 this._matchedTypes[typeof(T)](value);
             }
@@ -120,7 +138,8 @@ namespace Functional.PatternMatching
         private TIn _value;
         private bool _hasValue;
         private Dictionary<Type, Func<TIn, TOut>> _matchedTypes;
-        private Dictionary<TIn, Func<TOut>> _matchedValues;
+        private Dictionary<Type, Dictionary<TIn, Func<TOut>>>
+            _matchedValueTypes;
 
         public PatternMatcher()
         {
@@ -128,7 +147,8 @@ namespace Functional.PatternMatching
             this._value = default(TIn);
 
             this._matchedTypes = new Dictionary<Type, Func<TIn, TOut>>();
-            this._matchedValues = new Dictionary<TIn, Func<TOut>>();
+            this._matchedValueTypes =
+                new Dictionary<Type, Dictionary<TIn, Func<TOut>>>();
         }
 
         public PatternMatcher(TIn value) : this()
@@ -159,7 +179,16 @@ namespace Functional.PatternMatching
             TIn value,
             Func<TOut> func)
         {
-            if (this._matchedValues.ContainsKey(value))
+            if (!this._matchedValueTypes.ContainsKey(typeof(TIn)))
+            {
+                this._matchedValueTypes.Add(
+                    typeof(TIn),
+                    new Dictionary<TIn, Func<TOut>>());
+            }
+
+            var matchedValues = this._matchedValueTypes[typeof(TIn)];
+
+            if (matchedValues.ContainsKey(value))
             {
                 throw new InvalidOperationException(
                     string.Format(
@@ -168,7 +197,7 @@ namespace Functional.PatternMatching
                         value.ToString()));
             }
 
-            this._matchedValues.Add(value, func);
+            matchedValues.Add(value, func);
 
             return this;
         }
@@ -197,12 +226,19 @@ namespace Functional.PatternMatching
         public TOut Return(TIn value)
         {
             TOut result = default(TOut);
+            bool matched = false;
 
-            if (this._matchedValues.ContainsKey(value))
+            if (this._matchedValueTypes.ContainsKey(typeof(TIn)))
             {
-                result = this._matchedValues[value]();
+                var matchedValues = this._matchedValueTypes[typeof(TIn)];
+
+                if (null != matchedValues && matchedValues.ContainsKey(value))
+                {
+                    result = matchedValues[value]();
+                    matched = true;
+                }
             }
-            else if (this._matchedTypes.ContainsKey(typeof(TIn)))
+            if (!matched && this._matchedTypes.ContainsKey(typeof(TIn)))
             {
                 this._matchedTypes[typeof(TIn)](value);
             }
