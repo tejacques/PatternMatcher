@@ -144,6 +144,11 @@ namespace Functional.PatternMatching
             return this;
         }
 
+        public PatternMatcher<T> Else(Action action)
+        {
+            return With<_>(action);
+        }
+
         #endregion
 
         /// <summary>
@@ -317,6 +322,11 @@ namespace Functional.PatternMatching
             matchedValues.Add(value, func);
 
             return this;
+        }
+
+        public PatternMatcher<TIn, TOut> Else(Func<TOut> func)
+        {
+            return With<_>(func);
         }
 
         #endregion

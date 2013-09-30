@@ -33,7 +33,7 @@ namespace PatternMatcherTests
                    .With<int>(x => matched.Add("int", true))
                    .With<string>(s => matched.Add("string", true))
                    .With<double>(1.0, () => {})
-                   .With<_>(() => matched.Add("wildcard", true));
+                   .Else(() => matched.Add("wildcard", true));
 
             pm.Return();
             checkMatched("wildcard");
@@ -48,7 +48,7 @@ namespace PatternMatcherTests
             pm = pm.With<int>(0, () => matched.Add("intZero", true))
                    .With<int>(x => matched.Add("int", true))
                    .With<string>(s => matched.Add("string", true))
-                   .With<_>(() => matched.Add("wildcard", true));
+                   .Else(() => matched.Add("wildcard", true));
 
             pm.Return();
             checkMatched("wildcard");
@@ -59,7 +59,7 @@ namespace PatternMatcherTests
                     .With<int>(0, () => matched.Add("intZero", true))
                     .With<int>(x => matched.Add("int", true))
                     .With<string>(s => matched.Add("string", true))
-                    .With<_>(() => matched.Add("wildcard", true))
+                    .Else(() => matched.Add("wildcard", true))
                     .Return;
 
             matcher(0);
@@ -87,7 +87,7 @@ namespace PatternMatcherTests
                 .With<int>(x => x.ToString())
                 .With<string>(s => s)
                 .With<double>(1.0, () => "One Point Zero")
-                .With<_>(() => "Wildcard");
+                .Else(() => "Wildcard");
 
             Assert.AreEqual("Wildcard", pm.Return());
             Assert.AreEqual("Wildcard", pm.Return(0.0));
@@ -99,7 +99,7 @@ namespace PatternMatcherTests
                    .With<int>(x => x.ToString())
                    .With<string>(s => s)
                    .With<double>(1.0, () => "One Point Zero")
-                   .With<_>(() => "Wildcard");
+                   .Else(() => "Wildcard");
 
             Assert.AreEqual("Wildcard", pm.Return());
             Assert.AreEqual("Wildcard", pm.Return(0.0));
@@ -109,7 +109,7 @@ namespace PatternMatcherTests
                     .With<int>(0, () => "Zero")
                     .With<int>(x => x.ToString())
                     .With<string>(s => s)
-                    .With<_>(() => "Wildcard")
+                    .Else(() => "Wildcard")
                     .Return;
 
             Assert.AreEqual("Zero", matcher(0));
@@ -125,7 +125,7 @@ namespace PatternMatcherTests
                 .With<int>(0, () => { })
                 .With<int>(x => { })
                 .With<string>(s => { })
-                .With<_>(() => { });
+                .Else(() => { });
 
             Assert.Throws(typeof(MatchFailureException),
                 () => pm.With<int>(0, () => { }));
@@ -134,7 +134,7 @@ namespace PatternMatcherTests
                 () => pm.With<int>(i => { }));
 
             Assert.Throws(typeof(MatchFailureException),
-                () => pm.With<_>(() => { }));
+                () => pm.Else(() => { }));
 
             pm = PatternMatcher.Match();
 
@@ -148,7 +148,7 @@ namespace PatternMatcherTests
                 .With<int>(0, () => "Zero")
                 .With<int>(x => x.ToString())
                 .With<string>(s => s)
-                .With<_>(() => "Wildcard");
+                .Else(() => "Wildcard");
 
             Assert.Throws(typeof(MatchFailureException),
                 () => pm2.With<int>(0, () => "Zero"));
@@ -157,7 +157,7 @@ namespace PatternMatcherTests
                 () => pm2.With<int>(i => i.ToString()));
 
             Assert.Throws(typeof(MatchFailureException),
-                () => pm2.With<_>(() => "Wildcard"));
+                () => pm2.Else(() => "Wildcard"));
 
             pm2 = PatternMatcher.MatchWithResult<string>();
 
