@@ -100,11 +100,16 @@ namespace Functional.PatternMatching
         /// <summary>
         /// Runs the action whose pattern matches the value.
         /// </summary>
-        public void Return()
+        public void Return(bool allowNoMatch = false)
         {
             if (this._hasValue)
             {
                 Return(this._value);
+            }
+            else if (!allowNoMatch)
+            {
+                throw new MatchFailureException(
+                    "The PatternMatcher has no value to match on.");
             }
         }
 
@@ -112,7 +117,7 @@ namespace Functional.PatternMatching
         /// Runs the action whose pattern matches the supplied option.
         /// </summary>
         /// <param name="value">The value to match on.</param>
-        public void Return(T value)
+        public void Return(T value, bool allowNoMatch = false)
         {
             bool matched = false;
 
@@ -129,6 +134,12 @@ namespace Functional.PatternMatching
             if (!matched && this._matchedTypes.ContainsKey(typeof(T)))
             {
                 this._matchedTypes[typeof(T)](value);
+                matched = true;
+            }
+            else if (!allowNoMatch)
+            {
+                throw new MatchFailureException(
+                    "The PatternMatcher has no value to match on.");
             }
         }
     }
@@ -207,13 +218,18 @@ namespace Functional.PatternMatching
         /// <summary>
         /// Runs the func whose pattern matches the value.
         /// </summary>
-        public TOut Return()
+        public TOut Return(bool allowNoMatch = false)
         {
             TOut result = default(TOut);
 
             if (this._hasValue)
             {
                 result = Return(this._value);
+            }
+            else if (!allowNoMatch)
+            {
+                throw new MatchFailureException(
+                    "The PatternMatcher has no value to match on.");
             }
 
             return result;
@@ -223,7 +239,7 @@ namespace Functional.PatternMatching
         /// Runs the func whose pattern matches the supplied option.
         /// </summary>
         /// <param name="value">The value to match on.</param>
-        public TOut Return(TIn value)
+        public TOut Return(TIn value, bool allowNoMatch = false)
         {
             TOut result = default(TOut);
             bool matched = false;
@@ -241,6 +257,12 @@ namespace Functional.PatternMatching
             if (!matched && this._matchedTypes.ContainsKey(typeof(TIn)))
             {
                 this._matchedTypes[typeof(TIn)](value);
+                matched = true;
+            }
+            else if (!allowNoMatch)
+            {
+                throw new MatchFailureException(string.Format(
+                    "The input value: {value} was not matched.", value));
             }
 
             return result;
