@@ -2,10 +2,35 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Functional.PatternMatching
 {
+    public class _
+    {
+        public static _ Instance = new _();
+        private _() { }
+    }
+
+    public static class PatternMatcherExtensions
+    {
+        public static PatternMatcher<T> Match<T>(this T value)
+        {
+            return new PatternMatcher<T>(value);
+        }
+
+        public static PatternMatcher<TIn, TOut> Match<TIn, TOut>(
+            this TIn value)
+        {
+            return new PatternMatcher<TIn, TOut>(value);
+        }
+
+        public static PatternMatcher<object, TOut> MatchWithResult<TOut>(
+            this object value)
+        {
+            return new PatternMatcher<object, TOut>(value);
+        }
+    }
+
     public static class PatternMatcher
     {
         public static PatternMatcher<object> Match()
@@ -35,6 +60,7 @@ namespace Functional.PatternMatching
         private readonly bool _hasValue;
         private Dictionary<Type, Action<T>> _matchedTypes;
         private Dictionary<Type, Dictionary<T, Action>> _matchedValueTypes;
+        private Action _matchedWildcard;
 
         public PatternMatcher()
         {
@@ -44,6 +70,7 @@ namespace Functional.PatternMatching
             this._matchedTypes = new Dictionary<Type, Action<T>>();
             this._matchedValueTypes =
                 new Dictionary<Type, Dictionary<T, Action>>();
+            this._matchedWildcard = null;
         }
 
         public PatternMatcher(T value) : this()
@@ -54,39 +81,61 @@ namespace Functional.PatternMatching
 
         #region Fluent API
 
-        public PatternMatcher<T> With<TPattern>(Action<T> action)
+        public PatternMatcher<T> With<TPattern>(Action<TPattern> action)
+            where TPattern : T
         {
-            if (this._matchedTypes.ContainsKey(typeof(T)))
+            Type type = typeof(TPattern);
+
+            if (this._matchedTypes.ContainsKey(type))
             {
-                throw new InvalidOperationException(
+                throw new MatchFailureException(
                     string.Format(
                         "There is already a pattern for type: {0}.",
-                        typeof(T).Name));
-
+                        type.Name));
             }
 
-            this._matchedTypes.Add(typeof(T), action);
+            this._matchedTypes.Add(
+                type,
+                (x) => action((TPattern)x));
 
             return this;
         }
 
-        public PatternMatcher<T> With<TPattern>(T value, Action action)
+        public PatternMatcher<T> With<TPattern>(Action action)
+            where TPattern : _
         {
-            if (!this._matchedValueTypes.ContainsKey(typeof(T)))
+
+            if (null != this._matchedWildcard)
+            {
+                throw new MatchFailureException(
+                    "There is already a wildcard pattern.");
+            }
+
+            this._matchedWildcard = action;
+
+            return this;
+        }
+
+        public PatternMatcher<T> With<TPattern>(TPattern value, Action action)
+            where TPattern : T
+        {
+            Type type = typeof(TPattern);
+
+            if (!this._matchedValueTypes.ContainsKey(type))
             {
                 this._matchedValueTypes.Add(
-                    typeof(T),
+                    type,
                     new Dictionary<T, Action>());
             }
 
-            var matchedValues = this._matchedValueTypes[typeof(T)];
+            var matchedValues = this._matchedValueTypes[type];
 
             if (matchedValues.ContainsKey(value))
             {
-                throw new InvalidOperationException(
+                throw new MatchFailureException(
                     string.Format(
                         "There is already a pattern for type: {0} value: {1}.",
-                        typeof(T).Name,
+                        type.Name,
                         value.ToString()));
             }
 
@@ -100,11 +149,23 @@ namespace Functional.PatternMatching
         /// <summary>
         /// Runs the action whose pattern matches the value.
         /// </summary>
-        public void Return(bool allowNoMatch = false)
+        public void Return()
+        {
+            Return(false);
+        }
+
+        /// <summary>
+        /// Runs the action whose pattern matches the value.
+        /// </summary>
+        public void Return(bool allowNoMatch)
         {
             if (this._hasValue)
             {
                 Return(this._value);
+            }
+            else if (null != this._matchedWildcard)
+            {
+                this._matchedWildcard();
             }
             else if (!allowNoMatch)
             {
@@ -117,26 +178,47 @@ namespace Functional.PatternMatching
         /// Runs the action whose pattern matches the supplied option.
         /// </summary>
         /// <param name="value">The value to match on.</param>
-        public void Return(T value, bool allowNoMatch = false)
+        /// <param name="allowNoMatch">
+        /// Whether or not to allow no match.
+        /// </param>
+        public void Return(T value)
+        {
+            Return(value, false);
+        }
+
+        /// <summary>
+        /// Runs the action whose pattern matches the supplied option.
+        /// </summary>
+        /// <param name="value">The value to match on.</param>
+        /// <param name="allowNoMatch">
+        /// Whether or not to allow no match.
+        /// </param>
+        public void Return(T value, bool allowNoMatch)
         {
             bool matched = false;
+            Type type = value.GetType();
 
-            if (this._matchedValueTypes.ContainsKey(typeof(T)))
+            if (this._matchedValueTypes.ContainsKey(type))
             {
-                var matchedValues = this._matchedValueTypes[typeof(T)];
+                var matchedValues = this._matchedValueTypes[type];
 
-                if (null != matchedValues && matchedValues.ContainsKey(value))
+                if (matchedValues.ContainsKey(value))
                 {
                     matchedValues[value]();
                     matched = true;
                 }
             }
-            if (!matched && this._matchedTypes.ContainsKey(typeof(T)))
+            if (!matched && this._matchedTypes.ContainsKey(type))
             {
-                this._matchedTypes[typeof(T)](value);
+                this._matchedTypes[type](value);
                 matched = true;
             }
-            else if (!allowNoMatch)
+            else if (!matched && null != this._matchedWildcard)
+            {
+                this._matchedWildcard();
+                matched = true;
+            }
+            else if (!matched && !allowNoMatch)
             {
                 throw new MatchFailureException(
                     "The PatternMatcher has no value to match on.");
@@ -151,6 +233,7 @@ namespace Functional.PatternMatching
         private Dictionary<Type, Func<TIn, TOut>> _matchedTypes;
         private Dictionary<Type, Dictionary<TIn, Func<TOut>>>
             _matchedValueTypes;
+        private Func<TOut> _matchedWildcard;
 
         public PatternMatcher()
         {
@@ -160,6 +243,7 @@ namespace Functional.PatternMatching
             this._matchedTypes = new Dictionary<Type, Func<TIn, TOut>>();
             this._matchedValueTypes =
                 new Dictionary<Type, Dictionary<TIn, Func<TOut>>>();
+            this._matchedWildcard = null;
         }
 
         public PatternMatcher(TIn value) : this()
@@ -170,18 +254,37 @@ namespace Functional.PatternMatching
 
         #region Fluent API
 
-        public PatternMatcher<TIn, TOut> With<TPattern>(Func<TIn, TOut> func)
+        public PatternMatcher<TIn, TOut> With<TPattern>(Func<TPattern, TOut> func)
+            where TPattern : TIn
         {
-            if (this._matchedTypes.ContainsKey(typeof(TIn)))
+            Type type = typeof(TPattern);
+
+            if (this._matchedTypes.ContainsKey(type))
             {
-                throw new InvalidOperationException(
+                throw new MatchFailureException(
                     string.Format(
                         "There is already a pattern for type: {0}.",
-                        typeof(TIn).Name));
-
+                        type.Name));
             }
 
-            this._matchedTypes.Add(typeof(TIn), func);
+            this._matchedTypes.Add(
+                type,
+                (x) => func((TPattern)x));
+
+            return this;
+        }
+
+        public PatternMatcher<TIn, TOut> With<TPattern>(Func<TOut> func)
+            where TPattern : _
+        {
+
+            if (null != this._matchedWildcard)
+            {
+                throw new MatchFailureException(
+                    "There is already a wildcard pattern.");
+            }
+
+            this._matchedWildcard = func;
 
             return this;
         }
@@ -189,22 +292,25 @@ namespace Functional.PatternMatching
         public PatternMatcher<TIn, TOut> With<TPattern>(
             TIn value,
             Func<TOut> func)
+            where TPattern : TIn
         {
-            if (!this._matchedValueTypes.ContainsKey(typeof(TIn)))
+            Type type = typeof(TPattern);
+
+            if (!this._matchedValueTypes.ContainsKey(type))
             {
                 this._matchedValueTypes.Add(
-                    typeof(TIn),
+                    type,
                     new Dictionary<TIn, Func<TOut>>());
             }
 
-            var matchedValues = this._matchedValueTypes[typeof(TIn)];
+            var matchedValues = this._matchedValueTypes[type];
 
             if (matchedValues.ContainsKey(value))
             {
-                throw new InvalidOperationException(
+                throw new MatchFailureException(
                     string.Format(
                         "There is already a pattern for type: {0} value: {1}.",
-                        typeof(TIn).Name,
+                        type.Name,
                         value.ToString()));
             }
 
@@ -218,6 +324,14 @@ namespace Functional.PatternMatching
         /// <summary>
         /// Runs the func whose pattern matches the value.
         /// </summary>
+        public TOut Return()
+        {
+            return Return(false);
+        }
+
+        /// <summary>
+        /// Runs the func whose pattern matches the value.
+        /// </summary>
         public TOut Return(bool allowNoMatch = false)
         {
             TOut result = default(TOut);
@@ -225,6 +339,10 @@ namespace Functional.PatternMatching
             if (this._hasValue)
             {
                 result = Return(this._value);
+            }
+            else if (null != this._matchedWildcard)
+            {
+                result = this._matchedWildcard();
             }
             else if (!allowNoMatch)
             {
@@ -239,30 +357,45 @@ namespace Functional.PatternMatching
         /// Runs the func whose pattern matches the supplied option.
         /// </summary>
         /// <param name="value">The value to match on.</param>
-        public TOut Return(TIn value, bool allowNoMatch = false)
+        public TOut Return(TIn value)
+        {
+            return Return(value, false);
+        }
+
+        /// <summary>
+        /// Runs the func whose pattern matches the supplied option.
+        /// </summary>
+        /// <param name="value">The value to match on.</param>
+        public TOut Return(TIn value, bool allowNoMatch)
         {
             TOut result = default(TOut);
             bool matched = false;
+            Type type = value.GetType();
 
-            if (this._matchedValueTypes.ContainsKey(typeof(TIn)))
+            if (this._matchedValueTypes.ContainsKey(type))
             {
-                var matchedValues = this._matchedValueTypes[typeof(TIn)];
+                var matchedValues = this._matchedValueTypes[type];
 
-                if (null != matchedValues && matchedValues.ContainsKey(value))
+                if (matchedValues.ContainsKey(value))
                 {
                     result = matchedValues[value]();
                     matched = true;
                 }
             }
-            if (!matched && this._matchedTypes.ContainsKey(typeof(TIn)))
+            if (!matched && this._matchedTypes.ContainsKey(type))
             {
-                this._matchedTypes[typeof(TIn)](value);
+                result = this._matchedTypes[type](value);
                 matched = true;
             }
-            else if (!allowNoMatch)
+            else if (!matched && null != this._matchedWildcard)
+            {
+                result = this._matchedWildcard();
+                matched = true;
+            }
+            else if (!matched && !allowNoMatch)
             {
                 throw new MatchFailureException(string.Format(
-                    "The input value: {value} was not matched.", value));
+                    "The input value: {0} was not matched.", value));
             }
 
             return result;
