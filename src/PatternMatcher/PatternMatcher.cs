@@ -67,9 +67,8 @@ namespace Functional.PatternMatching
             this._hasValue = false;
             this._value = default(T);
 
-            this._matchedTypes = new Dictionary<Type, Action<T>>();
-            this._matchedValueTypes =
-                new Dictionary<Type, Dictionary<T, Action>>();
+            this._matchedTypes = null;
+            this._matchedValueTypes = null;
             this._matchedWildcard = null;
         }
 
@@ -85,6 +84,11 @@ namespace Functional.PatternMatching
             where TPattern : T
         {
             Type type = typeof(TPattern);
+
+            if (null == this._matchedTypes)
+            {
+                this._matchedTypes = new Dictionary<Type, Action<T>>();
+            }
 
             if (this._matchedTypes.ContainsKey(type))
             {
@@ -104,22 +108,19 @@ namespace Functional.PatternMatching
         public PatternMatcher<T> With<TPattern>(Action action)
             where TPattern : _
         {
-
-            if (null != this._matchedWildcard)
-            {
-                throw new MatchFailureException(
-                    "There is already a wildcard pattern.");
-            }
-
-            this._matchedWildcard = action;
-
-            return this;
+            return Else(action);
         }
 
         public PatternMatcher<T> With<TPattern>(TPattern value, Action action)
             where TPattern : T
         {
             Type type = typeof(TPattern);
+
+            if (null == this._matchedValueTypes)
+            {
+                this._matchedValueTypes =
+                    new Dictionary<Type, Dictionary<T, Action>>();
+            }
 
             if (!this._matchedValueTypes.ContainsKey(type))
             {
@@ -146,7 +147,15 @@ namespace Functional.PatternMatching
 
         public PatternMatcher<T> Else(Action action)
         {
-            return With<_>(action);
+            if (null != this._matchedWildcard)
+            {
+                throw new MatchFailureException(
+                    "There is already a wildcard pattern.");
+            }
+
+            this._matchedWildcard = action;
+
+            return this;
         }
 
         #endregion
@@ -200,30 +209,29 @@ namespace Functional.PatternMatching
         /// </param>
         public void Return(T value, bool allowNoMatch)
         {
-            bool matched = false;
             Type type = value.GetType();
 
-            if (this._matchedValueTypes.ContainsKey(type))
-            {
-                var matchedValues = this._matchedValueTypes[type];
+            Dictionary<T, Action> matchedValues;
+            Action matchedAction;
+            Action<T> matchedActionT;
 
-                if (matchedValues.ContainsKey(value))
-                {
-                    matchedValues[value]();
-                    matched = true;
-                }
-            }
-            if (!matched && this._matchedTypes.ContainsKey(type))
+            if (null != this._matchedValueTypes
+                && this._matchedValueTypes
+                    .TryGetValue(type, out matchedValues)
+                && matchedValues.TryGetValue(value, out matchedAction))
             {
-                this._matchedTypes[type](value);
-                matched = true;
+                matchedAction();
             }
-            else if (!matched && null != this._matchedWildcard)
+            else if (null != this._matchedTypes
+                && this._matchedTypes.TryGetValue(type, out matchedActionT))
+            {
+                matchedActionT(value);
+            }
+            else if (null != this._matchedWildcard)
             {
                 this._matchedWildcard();
-                matched = true;
             }
-            else if (!matched && !allowNoMatch)
+            else if (!allowNoMatch)
             {
                 throw new MatchFailureException(
                     "The PatternMatcher has no value to match on.");
@@ -245,9 +253,8 @@ namespace Functional.PatternMatching
             this._hasValue = false;
             this._value = default(TIn);
 
-            this._matchedTypes = new Dictionary<Type, Func<TIn, TOut>>();
-            this._matchedValueTypes =
-                new Dictionary<Type, Dictionary<TIn, Func<TOut>>>();
+            this._matchedTypes = null;
+            this._matchedValueTypes = null;
             this._matchedWildcard = null;
         }
 
@@ -263,6 +270,11 @@ namespace Functional.PatternMatching
             where TPattern : TIn
         {
             Type type = typeof(TPattern);
+
+            if (null == this._matchedTypes)
+            {
+                this._matchedTypes = new Dictionary<Type, Func<TIn, TOut>>();
+            }
 
             if (this._matchedTypes.ContainsKey(type))
             {
@@ -282,16 +294,7 @@ namespace Functional.PatternMatching
         public PatternMatcher<TIn, TOut> With<TPattern>(Func<TOut> func)
             where TPattern : _
         {
-
-            if (null != this._matchedWildcard)
-            {
-                throw new MatchFailureException(
-                    "There is already a wildcard pattern.");
-            }
-
-            this._matchedWildcard = func;
-
-            return this;
+            return Else(func);
         }
 
         public PatternMatcher<TIn, TOut> With<TPattern>(
@@ -300,6 +303,12 @@ namespace Functional.PatternMatching
             where TPattern : TIn
         {
             Type type = typeof(TPattern);
+
+            if (null == this._matchedValueTypes)
+            {
+                this._matchedValueTypes =
+                    new Dictionary<Type, Dictionary<TIn, Func<TOut>>>();
+            }
 
             if (!this._matchedValueTypes.ContainsKey(type))
             {
@@ -326,7 +335,15 @@ namespace Functional.PatternMatching
 
         public PatternMatcher<TIn, TOut> Else(Func<TOut> func)
         {
-            return With<_>(func);
+            if (null != this._matchedWildcard)
+            {
+                throw new MatchFailureException(
+                    "There is already a wildcard pattern.");
+            }
+
+            this._matchedWildcard = func;
+
+            return this;
         }
 
         #endregion
@@ -375,34 +392,36 @@ namespace Functional.PatternMatching
         /// <summary>
         /// Runs the func whose pattern matches the supplied option.
         /// </summary>
+        /// <param name="allowNoMatch">
+        /// Whether or not to return a default value or throw an exception
+        /// if there was nothing matched.
+        /// </param>
         /// <param name="value">The value to match on.</param>
         public TOut Return(TIn value, bool allowNoMatch)
         {
             TOut result = default(TOut);
-            bool matched = false;
             Type type = value.GetType();
 
-            if (this._matchedValueTypes.ContainsKey(type))
-            {
-                var matchedValues = this._matchedValueTypes[type];
+            Dictionary<TIn, Func<TOut>> matchedValues;
+            Func<TOut> matchedFunc;
+            Func<TIn, TOut> matchedFuncTIn;
 
-                if (matchedValues.ContainsKey(value))
-                {
-                    result = matchedValues[value]();
-                    matched = true;
-                }
-            }
-            if (!matched && this._matchedTypes.ContainsKey(type))
+            if (null != this._matchedValueTypes
+                && this._matchedValueTypes.TryGetValue(type, out matchedValues)
+                && matchedValues.TryGetValue(value, out matchedFunc))
             {
-                result = this._matchedTypes[type](value);
-                matched = true;
+                result = matchedFunc();
             }
-            else if (!matched && null != this._matchedWildcard)
+            else if (null != this._matchedTypes
+                && this._matchedTypes.TryGetValue(type, out matchedFuncTIn))
+            {
+                result = matchedFuncTIn(value);
+            }
+            else if (null != this._matchedWildcard)
             {
                 result = this._matchedWildcard();
-                matched = true;
             }
-            else if (!matched && !allowNoMatch)
+            else if (!allowNoMatch)
             {
                 throw new MatchFailureException(string.Format(
                     "The input value: {0} was not matched.", value));

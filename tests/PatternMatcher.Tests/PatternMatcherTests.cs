@@ -82,7 +82,7 @@ namespace PatternMatcherTests
         [Test]
         public void TestMatchWithResult()
         {
-            var pm = PatternMatcher.Match<object, string>()
+            var pm = PatternMatcher.MatchWithResult<string>()
                 .With<int>(0, () => "Zero")
                 .With<int>(x => x.ToString())
                 .With<string>(s => s)
