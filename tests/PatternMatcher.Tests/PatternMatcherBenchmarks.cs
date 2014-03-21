@@ -17,8 +17,12 @@ namespace PatternMatcherTests
         {
             int tmp = loops;
             loops = 1;
+            BenchmarkMatch();
+            BenchmarkMatchCached();
             BenchmarkMatchWithResult();
             BenchmarkMatchWithResultCached();
+            BenchmarkMatchValuesWithResult();
+            BenchmarkMatchValuesWithResultCached();
             loops = tmp;
         }
 
@@ -50,7 +54,7 @@ namespace PatternMatcherTests
         {
             for (int i = 0; i < loops; i++)
             {
-                var a = i.MatchWithResult<int>()
+                var a = i.Match<int, int>()
                     .With<int>(x => x)
                     .Return();
             }
@@ -60,7 +64,32 @@ namespace PatternMatcherTests
         public void BenchmarkMatchWithResultCached()
         {
             var pm = PatternMatcher.MatchWithResult<int>()
-                    .With<int>(x => x);
+                .With<int>(x => x);
+
+            for (int i = 0; i < loops; i++)
+            {
+                var a = pm.Return(i);
+            }
+        }
+
+        [Test]
+        public void BenchmarkMatchValuesWithResult()
+        {
+            for (int i = 0; i < loops; i++)
+            {
+                var a = i.Match<int, int>()
+                    .With<int>(0, () => 0)
+                    .With<int>(x => x)
+                    .Return();
+            }
+        }
+
+        [Test]
+        public void BenchmarkMatchValuesWithResultCached()
+        {
+            var pm = PatternMatcher.MatchWithResult<int>()
+                .With<int>(0, () => 0)
+                .With<int>(x => x);
 
             for (int i = 0; i < loops; i++)
             {
